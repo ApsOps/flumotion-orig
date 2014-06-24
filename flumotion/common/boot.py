@@ -238,6 +238,7 @@ def boot(path, gtk=False, gst=True, installReactor=True):
         from flumotion.configure import configure
         configure.gst_version = init_gst()
         from gi.repository import GstNet
+        from gi.repository import cairo, Pango, PangoCairo
 
     global USE_GTK, USE_GST
     USE_GTK=gtk

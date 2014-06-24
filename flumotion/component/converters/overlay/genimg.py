@@ -17,8 +17,7 @@
 
 import os
 import cairo
-import pango
-import pangocairo
+from gi.repository import Pango, PangoCairo
 
 from flumotion.configure import configure
 
@@ -59,6 +58,7 @@ def generateOverlay(text,
     from cairo import ImageSurface
     from cairo import Context
 
+
     image = ImageSurface(cairo.FORMAT_ARGB32, width, height)
     context = Context(image)
 
@@ -87,10 +87,10 @@ def generateOverlay(text,
 
     textOverflowed = False
     if text:
-        pcContext = pangocairo.CairoContext(context)
-        pangoLayout = pcContext.create_layout()
+        pcContext = PangoCairo.create_context(context)
+        pangoLayout = PangoCairo.create_layout(pcContext)
         if font is not None:
-            font = pango.FontDescription(font)
+            font = Pango.FontDescription(font)
             if not font.get_family() or \
                not font.get_family().lower() in [family.get_name().lower()
                     for family in pangoLayout.get_context().list_families()]:
@@ -98,15 +98,15 @@ def generateOverlay(text,
             if font.get_size() == 0:
                 font.set_size(FONT_SIZE)
         else:
-            font = pango.FontDescription('%s %s' % (FONT, FONT_PROPS))
+            font = Pango.FontDescription('%s %s' % (FONT, FONT_PROPS))
         pangoLayout.set_font_description(font)
 
         context.move_to(TEXT_XOFFSET+2, TEXT_YOFFSET+2)
         pangoLayout.set_markup('<span foreground="black" >%s</span>' % text)
-        pcContext.show_layout(pangoLayout)
+        PangoCairo.show_layout(pcContext, pangoLayout)
         context.move_to(TEXT_XOFFSET, TEXT_YOFFSET)
         pangoLayout.set_markup('<span foreground="white" >%s</span>' % text)
-        pcContext.show_layout(pangoLayout)
+        PangoCairo.show_layout(pcContext, pangoLayout)
 
         textWidth, textHeight = pangoLayout.get_pixel_size()
         if textWidth > width:

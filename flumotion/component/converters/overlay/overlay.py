@@ -15,8 +15,9 @@
 #
 # Headers in this file shall remain intact.
 
-import gobject
-import gst
+import gi
+gi.require_version('Gst', '1.0')
+from gi.repository import GObject, Gst
 
 from flumotion.common import messages, gstreamer
 from flumotion.common.i18n import N_, gettexter
@@ -26,47 +27,16 @@ from flumotion.component.converters.overlay import genimg
 __version__ = "$Rev$"
 T_ = gettexter()
 
-# FIXME: This class only needed for gst-plugins-base < 0.10.22
-# Remove when we do not need compatibility with < 0.10.22
-
-
-class OverlayImageSource(gst.BaseSrc):
-    __gstdetails__ = ('FluOverlaySrc', 'Source',
-                      'Overlay Image source for flumotion', 'Zaheer Merali')
-    __gsttemplates__ = (
-        gst.PadTemplate("src",
-                        gst.PAD_SRC,
-                        gst.PAD_ALWAYS,
-                        gst.caps_new_any()))
-    imgBuf = ""
-    capsStr = ""
-    duration = 1.0/25
-
-    def __init__(self):
-        gst.BaseSrc.__init__(self)
-        self.set_format(gst.FORMAT_TIME)
-
-    def do_create(self, offset, length):
-        self.debug("Pushing buffer")
-        gstBuf = gst.Buffer(self.imgBuf)
-        padcaps = gst.caps_from_string(self.capsStr)
-        gstBuf.set_caps(padcaps)
-        gstBuf.timestamp = 0
-        gstBuf.duration = self.duration * gst.SECOND
-        return gst.FLOW_OK, gstBuf
-
 
 class Overlay(feedcomponent.ParseLaunchComponent):
     checkTimestamp = True
     checkOffset = True
     _filename = None
-    CAPS_TEMPLATE = "video/x-raw-rgb,bpp=32,depth=32,width=%d,height=%d," \
-            "red_mask=-16777216,green_mask=16711680,blue_mask=65280," \
-            "alpha_mask=255,endianness=4321,framerate=0/1"
+    CAPS_TEMPLATE = "video/x-raw,width=%d,height=%d,framerate=0/1,interlace-mode=(string)progressive"
 
     def get_pipeline_string(self, properties):
-        pipeline = ('@eater:default@ ! ffmpegcolorspace !'
-            'video/x-raw-yuv,format=(fourcc)AYUV ! videomixer name=mix !'
+        pipeline = ('@eater:default@ ! videoconvert !'
+            'video/x-raw,format=(string)AYUV ! videomixer name=mix !'
             '@feeder:default@')
         return pipeline
 
@@ -100,7 +70,7 @@ class Overlay(feedcomponent.ParseLaunchComponent):
     def _set_source_caps(self, width, height):
         self.capsStr = self.CAPS_TEMPLATE % (width, height)
         if self.source.get_factory().get_name() == 'appsrc':
-            self.source.set_property('caps', gst.Caps(self.capsStr))
+            self.source.set_property('caps', Gst.Caps(self.capsStr))
         else:
             self.source.capsStr = self.capsStr
 
@@ -110,46 +80,45 @@ class Overlay(feedcomponent.ParseLaunchComponent):
             self.source.duration = duration
 
     def _notify_caps_cb(self, pad, param):
-        caps = pad.get_negotiated_caps()
+        caps = pad.get_current_caps()
         if caps is None:
             return
-        struct = pad.get_negotiated_caps().get_structure(0)
+        struct = pad.get_current_caps().get_structure(0)
         height = struct['height']
         width = struct['width']
-        framerate = struct['framerate']
+        framerate_num = struct.get_fraction('framerate')[1]
+        framerate_den = struct.get_fraction('framerate')[2]
+        framerate = Gst.Fraction(framerate_num, framerate_den)
 
         self._set_source_image(width, height)
         self._set_source_caps(width, height)
         self._set_source_framerate(framerate)
 
-        if not self.sourceBin.get_pad("src").is_linked():
+        if not self.sourceBin.get_static_pad("src").is_linked():
             self.sourceBin.link_filtered(self.videomixer,
-                gst.Caps("video/x-raw-yuv, format=(fourcc)AYUV"))
+                Gst.Caps("video/x-raw, format=(string)AYUV"))
             self.sourceBin.set_locked_state(False)
-            self.sourceBin.set_state(gst.STATE_PLAYING)
+            self.sourceBin.set_state(Gst.State.PLAYING)
 
     def _add_source_bin(self, pipeline):
         if gstreamer.element_factory_exists("appsrc") and \
             gstreamer.get_plugin_version("app") >= (0, 10, 22, 0):
-            self.source = gst.element_factory_make('appsrc', 'source')
+            self.source = Gst.ElementFactory.make('appsrc', 'source')
             self.source.set_property('do-timestamp', True)
             self.source.connect('need-data', self.push_buffer)
         else:
-            #FIXME: fluoverlaysrc only needed on gst-plugins-base < 0.10.22
-            gobject.type_register(OverlayImageSource)
-            gst.element_register(OverlayImageSource, "fluoverlaysrc",
-                gst.RANK_MARGINAL)
-            self.source = gst.element_factory_make('fluoverlaysrc', 'source')
+            self.source = Gst.ElementFactory.make('fluoverlaysrc', 'source')
         # create the source bin
-        self.sourceBin = gst.Bin()
-        # create the alphacolor element
-        alphacolor = gst.element_factory_make('alphacolor')
+        self.sourceBin = Gst.Bin()
+        # create the videoconvert element
+        videoconvert = Gst.ElementFactory.make('videoconvert')
         # add the elements to the source bin and link them
-        self.sourceBin.add_many(self.source, alphacolor)
-        self.source.link(alphacolor)
+        self.sourceBin.add(self.source)
+        self.sourceBin.add(videoconvert)
+        self.source.link(videoconvert)
         pipeline.add(self.sourceBin)
         # create the source ghost pad
-        self.sourceBin.add_pad(gst.GhostPad('src', alphacolor.get_pad('src')))
+        self.sourceBin.add_pad(Gst.GhostPad.new('src', videoconvert.get_static_pad('src')))
         # set the locked state and wait until we get the first caps change
         # and we know the widht and height of the input stream
         self.sourceBin.set_locked_state(True)
@@ -188,7 +157,7 @@ class Overlay(feedcomponent.ParseLaunchComponent):
         self.videomixer = pipeline.get_by_name("mix")
         # add a callback for caps change to configure the image source
         # properly using the caps of the input stream
-        self.videomixer.get_pad('sink_0').connect('notify::caps',
+        self.videomixer.get_static_pad('sink_0').connect('notify::caps',
             self._notify_caps_cb)
         # the source is added to the pipeline, but it's not linked yet, and
         # remains with a locked state until we have enough info about the
@@ -203,8 +172,9 @@ class Overlay(feedcomponent.ParseLaunchComponent):
         @type source: GstElement
         """
         self.log("Pushing buffer")
-        gstBuf = gst.Buffer(self.imgBuf)
-        padcaps = gst.caps_from_string(self.capsStr)
-        gstBuf.set_caps(padcaps)
-        gstBuf.duration = int(self.duration * gst.SECOND)
+        gstBuf = Gst.Buffer.new_wrapped(self.imgBuf)
+        padcaps = Gst.Caps.from_string(self.capsStr)
+        source.set_property('caps', padcaps)
+        gstBuf.duration = int(self.duration * Gst.SECOND)
+        source.set_property('format', Gst.Format.TIME) # FIXME(aps-sids): not sure if we need to do this
         source.emit('push-buffer', gstBuf)
