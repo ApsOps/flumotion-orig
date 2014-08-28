@@ -123,28 +123,28 @@ class AVProducerBase(feedcomponent.ParseLaunchComponent):
     def _add_video_effects(self, pipeline):
         # Add deinterlacer
         deinterlacer = deinterlace.Deinterlace('deinterlace',
-            self.get_raw_video_element().get_pad("src"), pipeline,
+            self.get_raw_video_element().get_static_pad("src"), pipeline,
             self.deintMode, self.deintMethod)
         self.addEffect(deinterlacer)
         deinterlacer.plug()
 
         # Add video rate converter
         rateconverter = videorate.Videorate('videorate',
-            deinterlacer.effectBin.get_pad("src"), pipeline,
+            deinterlacer.effectBin.get_static_pad("src"), pipeline,
             self.framerate)
         self.addEffect(rateconverter)
         rateconverter.plug()
 
         # Add video scaler
         videoscaler = videoscale.Videoscale('videoscale', self,
-            rateconverter.effectBin.get_pad("src"), pipeline,
+            rateconverter.effectBin.get_static_pad("src"), pipeline,
             self.width, self.height, self.is_square, self.add_borders)
         self.addEffect(videoscaler)
         videoscaler.plug()
 
         # Add key units scheduler
         scheduler = kuscheduler.KeyUnitsScheduler('video-kuscheduler',
-            videoscaler.effectBin.get_pad("src"), pipeline, self.kuinterval)
+            videoscaler.effectBin.get_static_pad("src"), pipeline, self.kuinterval)
         self.addEffect(scheduler)
         scheduler.plug()
 
@@ -158,12 +158,12 @@ class AVProducerBase(feedcomponent.ParseLaunchComponent):
 
         # Add audio converter
         audioconverter = audioconvert.Audioconvert('audioconvert',
-            comp_level.get_pad("src"), pipeline, tolerance=40 * Gst.MSECOND)
+            comp_level.get_static_pad("src"), pipeline, tolerance=40 * Gst.MSECOND)
         self.addEffect(audioconverter)
         audioconverter.plug()
 
         # Add key units scheduler
         scheduler = kuscheduler.KeyUnitsScheduler('audio-kuscheduler',
-            audioconverter.effectBin.get_pad("src"), pipeline, self.kuinterval)
+            audioconverter.effectBin.get_static_pad("src"), pipeline, self.kuinterval)
         self.addEffect(scheduler)
         scheduler.plug()

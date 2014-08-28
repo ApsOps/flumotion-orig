@@ -46,7 +46,7 @@ class Firewire(avproducer.AVProducerBase):
                 '    ! dvdemux name=demux'
                 '  demux. ! queue ! %s name=decoder'
                 '    ! @feeder:video@'
-                '  demux. ! queue ! audio/x-raw-int '
+                '  demux. ! queue ! audio/x-raw '
                 '    ! volume name=setvolume'
                 '    ! level name=volumelevel message=true '
                 '    ! @feeder:audio@'
