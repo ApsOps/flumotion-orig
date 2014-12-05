@@ -146,7 +146,8 @@ class AVProducerBase(feedcomponent.ParseLaunchComponent):
         scheduler = kuscheduler.KeyUnitsScheduler('video-kuscheduler',
             videoscaler.effectBin.get_static_pad("src"), pipeline, self.kuinterval)
         self.addEffect(scheduler)
-        scheduler.plug()
+        # FIXME(aps-sids): Fix the KeyUnitsScheduler effect
+        #scheduler.plug()
 
     def _add_audio_effects(self, pipeline):
         # Add volume setter
@@ -166,4 +167,5 @@ class AVProducerBase(feedcomponent.ParseLaunchComponent):
         scheduler = kuscheduler.KeyUnitsScheduler('audio-kuscheduler',
             audioconverter.effectBin.get_static_pad("src"), pipeline, self.kuinterval)
         self.addEffect(scheduler)
-        scheduler.plug()
+        # FIXME(aps-sids): Fix the KeyUnitsScheduler effect
+        #scheduler.plug()

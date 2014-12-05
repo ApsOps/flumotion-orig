@@ -87,11 +87,11 @@ class Firewire(avproducer.AVProducerBase):
         @param bus: the message bus sending the message
         @param message: the message received
         """
-        if message.structure.get_name() == "ieee1394-bus-reset":
+        if message.get_structure().get_name() == "ieee1394-bus-reset":
             # we have a firewire bus reset
-            s = message.structure
+            s = message.get_structure()
             # current-device-change is only in gst-plugins-good >= 0.10.3
-            if 'current-device-change' in s.keys():
+            if s.has_field('current-device-change'):
                 if s['current-device-change'] != 0:
                     # we actually have a connect or disconnect of the camera
                     # so first remove all the previous messages warning about a

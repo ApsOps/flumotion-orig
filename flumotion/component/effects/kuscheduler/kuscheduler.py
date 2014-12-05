@@ -72,23 +72,23 @@ class GstKeyUnitsScheduler(Gst.Element):
             running_time = clock.get_time() - self.get_base_time()
         else:
             running_time = 0
-        s = Gst.Structure("GstForceKeyUnit")
-        s.set_value('timestamp', timestamp, 'uint64')
-        s.set_value('stream-time', timestamp, 'uint64')
-        s.set_value('running-time', running_time, 'uint64')
+        s = Gst.Structure.new_empty("GstForceKeyUnit")
+        s.set_value('timestamp', timestamp)
+        s.set_value('stream-time', timestamp)
+        s.set_value('running-time', running_time)
         s.set_value('all-headers', True)
         s.set_value('count', self._count)
         return self.srcpad.push_event(
-            Gst.event_new_custom(Gst.EVENT_CUSTOM_DOWNSTREAM, s))
+            Gst.Event.new_custom(Gst.EventType.CUSTOM_DOWNSTREAM, s))
 
-    def chainfunc(self, pad, buf):
-        if self.interval == 0 or buf.timestamp == Gst.CLOCK_TIME_NONE:
+    def chainfunc(self, pad, parent, buf):
+        if self.interval == 0 or buf.pts == Gst.CLOCK_TIME_NONE:
             pass
         elif self._last_ts == 0 or \
-                buf.timestamp >= self._last_ts + self.interval:
+                buf.pts >= self._last_ts + self.interval:
             self._count += 1
-            self._last_ts = buf.timestamp
-            if not self._send_event(buf.timestamp):
+            self._last_ts = buf.pts
+            if not self._send_event(buf.pts):
                 self.warning("Error sending GstForceKeyUnit event")
         return self.srcpad.push(buf)
 
