@@ -72,9 +72,19 @@ class AVProducerBase(feedcomponent.ParseLaunchComponent):
             raise errors.ConfigError(msg)
 
     def get_pipeline_string(self, props):
-        self.is_square = props.get('is-square', False)
+        self.is_hdv = props.get('is-hdv', False)
+        # HDV streams generally have square pixels, while normal DV streams don't.
+        self.is_square = props.get('is-square', self.is_hdv)
         self.width = props.get('width', None)
         self.height = props.get('height', None)
+        if not self.is_square and not self.height:
+            if self.is_hdv:
+                # HDV we assume 16:9
+                self.height = int(self.width*16/9)
+            else:
+                # DV we assume PAL ratios
+                self.height = int(576 * self.width/720.)
+
         self.add_borders = props.get('add-borders', True)
         self.deintMode = props.get('deinterlace-mode', 'auto')
         self.deintMethod = props.get('deinterlace-method', 'ffmpeg')

@@ -25,6 +25,8 @@
 
       <properties xmlns:xi="http://www.w3.org/2001/XInclude">
         <xi:include href="flumotion/component/common/avproducer/properties.xml"/>
+        <property name="is-hdv" type="bool"
+                  _description="Whether the camera output is HDV rather then DV." />
         <property name="decoder" type="string"
                  _description="The element to decode with (default=dvdec)" />
         <property name="guid" type="string"

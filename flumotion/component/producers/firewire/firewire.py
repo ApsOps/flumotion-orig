@@ -40,17 +40,32 @@ class Firewire(avproducer.AVProducerBase):
         # replace it with videotestsrc of the same size and PAR, so we can
         # unittest the pipeline
         # need a queue in case tcpserversink blocks somehow
-        return ('dv1394src %s'
-                '    ! tee name=t'
-                '    ! queue leaky=2 max-size-time=1000000000'
-                '    ! dvdemux name=demux'
-                '  demux. ! queue ! %s name=decoder'
-                '    ! @feeder:video@'
-                '  demux. ! queue ! audio/x-raw '
-                '    ! volume name=setvolume'
-                '    ! level name=volumelevel message=true '
-                '    ! @feeder:audio@'
-                '    t. ! queue ! @feeder:dv@' % (self.guid, self.decoder_str))
+        if self.is_hdv:
+            template = ('hdv1394src %s'
+                        '    ! tee name=t'
+                        '    ! queue leaky=2 max-size-time=1000000000'
+                        '    ! mpegtsdemux name=demux'
+                        '  demux. ! queue ! mpeg2dec name=decoder'
+                        '    ! @feeder:video@'
+                        '  demux. ! queue ! mad ! audio/x-raw '
+                        '    ! volume name=setvolume'
+                        '    ! level name=volumelevel message=true '
+                        '    ! @feeder:audio@'
+                        '    t. ! queue ! @feeder:hdv@' % (self.guid,))
+        else:
+            template = ('dv1394src %s'
+                        '    ! tee name=t'
+                        '    ! queue leaky=2 max-size-time=1000000000'
+                        '    ! dvdemux name=demux'
+                        '  demux. ! queue ! %s name=decoder'
+                        '    ! @feeder:video@'
+                        '  demux. ! queue ! audio/x-raw '
+                        '    ! volume name=setvolume'
+                        '    ! level name=volumelevel message=true '
+                        '    ! @feeder:audio@'
+                        '    t. ! queue ! @feeder:dv@' % (self.guid, self.decoder_str))
+
+        return template
 
     def configure_pipeline(self, pipeline, properties):
         # catch bus message for when camera disappears

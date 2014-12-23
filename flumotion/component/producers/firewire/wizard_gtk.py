@@ -40,6 +40,7 @@ class FireWireProducer(AudioProducer, VideoProducer):
     def __init__(self):
         super(FireWireProducer, self).__init__()
 
+        self.properties.is_hdv = False
         self.properties.is_square = True
         self.properties.framerate = 12.5
         self.properties.decoder = 'ffdec_dvvideo'
@@ -193,13 +194,21 @@ class _FireWireCommon:
         msg = messages.Info(T_(N_('Checking for Firewire devices...')),
             mid='firewire-check')
         self.wizard.add_msg(msg)
+
+        self._devices = {}
+        self._populateDevicesFor('dv1394src', False)
+        self._populateDevicesFor('hdv1394src', True)
+
+    def _populateDevicesFor(self, src, hdv):
         d = self.runInWorker('flumotion.worker.checks.device',
                              'fetchDevices', 'firewire-check',
-                             ['dv1394src'], 'guid')
+                             [src], 'guid')
 
         def firewireCheckDone(devices):
             self.wizard.clear_msg('firewire-check')
-            self.guid.prefill(devices)
+            for device in devices:
+                self._devices[device] = hdv
+            self.guid.prefill(self._devices.keys())
 
         def trapRemoteFailure(failure):
             failure.trap(errors.RemoteRunFailure)
@@ -219,8 +228,17 @@ class _FireWireCommon:
             mid='firewire-check')
         self.wizard.add_msg(msg)
 
+        guid = self.guid.get_selected()
+        try:
+            hdv = self._devices[guid]
+        except KeyError:
+            hdv = False
+
+        # Change the checkbox...
+        self.hdv.set_selected(hdv)
+
         d = self.runInWorker('flumotion.worker.checks.gst010', 'check1394',
-            mid='firewire-check', guid=self.guid.get_selected())
+            mid='firewire-check', guid=guid)
 
         def chooseDecoder(missing):
             if 'ffdec_dvvideo' in missing and 'dvdec' not in missing:
@@ -307,7 +325,7 @@ class FireWireVideoStep(_FireWireCommon, VideoProducerStep):
         self.guid.data_type = int
         self.framerate.data_type = float
         self.add_proxy(self.model.properties,
-                       ['guid', 'framerate', 'is_square'])
+                       ['guid', 'is_hdv', 'framerate', 'is_square'])
 
 
 class FireWireAudioStep(_FireWireCommon, AudioProducerStep):
